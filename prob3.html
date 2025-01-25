@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!--by Rakesh Khanna, April 15 2024-->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Draw Ellipses</title>
+<style>
+    .canvas-container {
+        display: grid;
+        grid-template-columns: repeat(5, 110px); /* Set width for each column */
+        grid-template-rows: repeat(4, 110px); /* Set height for each row */
+        grid-gap: 3px; /* Reduced gap between columns */
+    }
+    canvas {
+        border: 1px solid black;
+        width: 100%; /* Occupy full width of the container */
+        height: 100%; /* Occupy full height of the container */
+    }
+    .button {
+        margin-top: 10px;
+        padding: 10px 20px;
+        background-color: #ddd;
+        border: 1px solid #777;
+        cursor: pointer;
+    }
+    #clearButton {
+        margin-right: 5px; /* Added margin-right to separate buttons */
+    }
+    #clearLastButton {
+        margin-right: 5px; /* Added margin-right to separate buttons */
+    }
+    #checkButton {
+        margin-left: 5px; /* Added margin-left to separate buttons */
+    }
+    #colorPalette {
+        position: relative;
+        top: 10px;
+        right: 10px;
+    }
+    .color-option {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        margin: 0 5px;
+        cursor: pointer;
+    }
+    .canvas-info {
+        position: absolute;
+        top: 100px;
+        left: 700px; /* Adjusted position to make room for canvas */
+        font-size: 16px; /* Increase font size */
+        color: green; /* Change text color */
+    }
+    .last-canvas-info {
+        position: absolute;
+        top: 20px;
+        right: 20px; /* Position in the top right corner */
+        font-size: 16px;
+        color: blue; /* Change text color */
+    }
+    #header {
+        width: 75%;
+        text-align: left;
+        background-color: #f0f0f0;
+        padding: 5px 5px;
+        font-size: small;
+    }
+</style>
+</head>
+<body>
+
+<div id="header">
+    <h2>Loop Arrangements - Problem 3</h2>
+    <p>There are 20 different ways to arrange 5 loops on a flat piece of paper. 2 are given. How many others can you find?</p>
+</div>
+
+<div id="content">
+    <div class="canvas-container">
+        <canvas class="myCanvas" width="110" height="110"></canvas>
+        <canvas class="myCanvas" width="110" height="110"></canvas>
+        <canvas class="myCanvas" width="110" height="110"></canvas>
+        <canvas class="myCanvas" width="110" height="110"></canvas>
+        <canvas class="myCanvas" width="110" height="110"></canvas>
+        <canvas class="myCanvas" width="110" height="110"></canvas>
+        <canvas class="myCanvas" width="110" height="110"></canvas>
+        <canvas class="myCanvas" width="110" height="110"></canvas>
+        <canvas class="myCanvas" width="110" height="110"></canvas>
+        <canvas class="myCanvas" width="110" height="110"></canvas>
+        <canvas class="myCanvas" width="110" height="110"></canvas>
+        <canvas class="myCanvas" width="110" height="110"></canvas>
+        <canvas class="myCanvas" width="110" height="110"></canvas>
+        <canvas class="myCanvas" width="110" height="110"></canvas>
+        <canvas class="myCanvas" width="110" height="110"></canvas>
+        <canvas class="myCanvas" width="110" height="110"></canvas>
+        <canvas class="myCanvas" width="110" height="110"></canvas>
+        <canvas class="myCanvas" width="110" height="110"></canvas>
+        <canvas class="myCanvas" width="110" height="110"></canvas>
+        <canvas class="myCanvas" width="110" height="110"></canvas>
+    </div>
+    <div id="colorPalette"></div>
+    <button id="clearButton" class="button">Clear All</button>
+    <button id="clearLastButton" class="button">Clear Last</button>
+    <button id="checkButton" class="button">Check</button>
+
+    <div id="canvasInfo" class="canvas-info"></div>
+    <div id="lastCanvasInfo" class="last-canvas-info"></div>
+</div>
+
+<script>
+    const canvases = document.querySelectorAll('.myCanvas');
+    const ctxs = Array.from(canvases).map(canvas => canvas.getContext('2d'));
+    let ellipses = Array.from({ length: 20 }, () => []); // Array to store drawn ellipses for each canvas
+
+    const colors = ['black', 'red', 'blue', 'green', 'purple']; // Available colors
+
+    // Color palette UI
+    const colorPalette = document.getElementById('colorPalette');
+    colors.forEach(color => {
+        const colorOption = document.createElement('div');
+        colorOption.classList.add('color-option');
+        colorOption.style.backgroundColor = color;
+        colorOption.addEventListener('click', () => {
+            selectedColor = color;
+            console.log(selectedColor); // Log selected color for debugging
+        });
+        colorPalette.appendChild(colorOption);
+    });
+
+    let selectedColor = 'black'; // Default color
+    let activeCanvasIndex = -1; // Track the currently active canvas
+    let lastCanvasIndex = -1; // Track the last canvas drawn on
+
+    canvases.forEach((canvas, index) => {
+        const excludedIndices = [0, 1, 2, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
+
+        if (excludedIndices.includes(index)) {
+            // Add event listeners only to Canvases 1 and 7
+            canvas.addEventListener('mousedown', (event) => startDraw(event, index));
+            canvas.addEventListener('mousemove', (event) => draw(event, index));
+            canvas.addEventListener('mouseup', () => endDraw(index));
+            canvas.addEventListener('mouseleave', () => endDraw(index));
+        } else {
+            // Remove event listeners from other canvases
+            canvas.removeEventListener('mousedown', startDraw);
+            canvas.removeEventListener('mousemove', draw);
+            canvas.removeEventListener('mouseup', endDraw);
+            canvas.removeEventListener('mouseleave', endDraw);
+        }
+    });
+
+    let isDrawing = false;
+    let startX, startY, endX, endY;
+
+    function startDraw(event, canvasIndex) {
+        isDrawing = true;
+        startX = event.clientX - canvases[canvasIndex].offsetLeft;
+        startY = event.clientY - canvases[canvasIndex].offsetTop;
+        activeCanvasIndex = canvasIndex; // Set the active canvas only when mouse is pressed within canvas boundaries
+    }
+
+    function draw(event, canvasIndex) {
+        if (!isDrawing || canvasIndex !== activeCanvasIndex) return; // Exit if not drawing or pointer moved to another canvas
+        endX = event.clientX - canvases[canvasIndex].offsetLeft;
+        endY = event.clientY - canvases[canvasIndex].offsetTop;
+
+        redraw(canvasIndex);
+        ctxs[canvasIndex].beginPath();
+        const radiusX = Math.abs(endX - startX) / 2;
+        const radiusY = Math.abs(endY - startY) / 2;
+        const centerX = (startX + endX) / 2;
+        const centerY = (startY + endY) / 2;
+        ctxs[canvasIndex].strokeStyle = selectedColor; // Set the stroke color
+        ctxs[canvasIndex].ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
+        ctxs[canvasIndex].stroke();
+    }
+
+    function endDraw(canvasIndex) {
+        if (!isDrawing || canvasIndex !== activeCanvasIndex) return; // Exit if not drawing or releasing on a different canvas
+        isDrawing = false;
+        lastCanvasIndex = canvasIndex; // Update the last canvas drawn on
+        activeCanvasIndex = -1; // Reset the active canvas
+        const radiusX = Math.abs(endX - startX) / 2;
+        const radiusY = Math.abs(endY - startY) / 2;
+        const centerX = (startX + endX) / 2;
+        const centerY = (startY + endY) / 2;
+        const newEllipse = { centerX, centerY, radiusX, radiusY, color: selectedColor }; // Store color
+
+        let intersects = false;
+
+        // Check if the new ellipse intersects with any existing ellipses that are still on the canvas
+        for (let i = 0; i < ellipses[canvasIndex].length; i++) {
+            const ellipse = ellipses[canvasIndex][i];
+            if (!isEllipseOnCanvas(ellipse, canvasIndex)) {
+                continue; // Skip this ellipse if it's not on the canvas
+            }
+
+            // Check if the new ellipse intersects with the existing ellipse
+            if (doEllipsesIntersect(newEllipse, ellipse)) {
+                intersects = true; // Intersection detected
+                break; // Exit the loop after detecting the intersection
+            }
+        }
+
+        if (intersects) {
+            alert("Ellipses can't intersect.");
+            // Redraw canvas without the last drawn ellipse, but don't remove it from the array
+            redraw(canvasIndex);
+        } else {
+            // If no intersection, add the new ellipse to the array and redraw
+            ellipses[canvasIndex].push(newEllipse);
+            redraw(canvasIndex);
+        }
+    }
+
+    function redraw(canvasIndex) {
+        ctxs[canvasIndex].clearRect(0, 0, canvases[canvasIndex].width, canvases[canvasIndex].height);
+        ellipses[canvasIndex].forEach(ellipse => {
+            ctxs[canvasIndex].beginPath();
+            ctxs[canvasIndex].ellipse(ellipse.centerX, ellipse.centerY, ellipse.radiusX, ellipse.radiusY, 0, 0, 2 * Math.PI);
+            ctxs[canvasIndex].strokeStyle = ellipse.color; // Set the stroke color
+            ctxs[canvasIndex].stroke();
+        });
+        // Display the index of the last canvas drawn on in the top right corner
+        //const lastCanvasInfo = document.getElementById('lastCanvasInfo');
+        //lastCanvasInfo.textContent = `Last Canvas: ${lastCanvasIndex}`;
+    }
+
+    function isEllipseOnCanvas(ellipse, canvasIndex) {
+        const canvas = canvases[canvasIndex];
+        return (
+            ellipse.centerX + ellipse.radiusX >= 0 &&
+            ellipse.centerX - ellipse.radiusX <= canvas.width &&
+            ellipse.centerY + ellipse.radiusY >= 0 &&
+            ellipse.centerY - ellipse.radiusY <= canvas.height
+        );
+    }
+
+    function isPointInsideEllipse(x, y, ellipse) {
+        const dx = x - ellipse.centerX;
+        const dy = y - ellipse.centerY;
+        // Check if the point lies inside the ellipse using the ellipse equation
+        return (dx * dx) / (ellipse.radiusX * ellipse.radiusX) + (dy * dy) / (ellipse.radiusY * ellipse.radiusY) <= 1;
+    }
+
+    function doEllipsesIntersect(ellipse1, ellipse2) {
+        // Check if any point on the boundary of ellipse1 lies inside ellipse2, or vice versa
+        let pointsInside1 = 0;
+        let pointsInside2 = 0;
+        const angleStep = 0.1; // Angle step for checking boundary points
+
+        for (let angle = 0; angle < Math.PI * 2; angle += angleStep) {
+            const x1 = ellipse1.centerX + ellipse1.radiusX * Math.cos(angle);
+            const y1 = ellipse1.centerY + ellipse1.radiusY * Math.sin(angle);
+            const x2 = ellipse2.centerX + ellipse2.radiusX * Math.cos(angle);
+            const y2 = ellipse2.centerY + ellipse2.radiusY * Math.sin(angle);
+
+            if (isPointInsideEllipse(x1, y1, ellipse2)) {
+                pointsInside1++;
+            }
+            if (isPointInsideEllipse(x2, y2, ellipse1)) {
+                pointsInside2++;
+            }
+        }
+
+        if (pointsInside1 === 0 || pointsInside2 === 0) {
+            return false; // No intersection detected if all points on one ellipse are inside the other
+        }
+
+        return true; // Intersection detected otherwise
+    }
+
+    // Clear button event listener
+    const clearButton = document.getElementById('clearButton');
+    clearButton.addEventListener('click', clearCanvas);
+
+function clearCanvas() {
+    const indicesToClear = [0, 1, 2, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
+    indicesToClear.forEach(index => {
+        ctxs[index].clearRect(0, 0, canvases[index].width, canvases[index].height);
+        ellipses[index] = []; // Clear the array of drawn ellipses for the canvas
+    });
+    clearCanvasInfo(); // Clear canvas info
+}
+
+
+    // Check button event listener
+    const checkButton = document.getElementById('checkButton');
+    checkButton.addEventListener('click', checkEllipses);
+
+function checkEllipses() {
+    const canvasInfo = document.getElementById('canvasInfo');
+    canvasInfo.innerHTML = ''; // Clear previous content
+
+    // Arrays to store the ordered inside counts for each canvas
+    const orderedInsideCounts = [];
+
+    // Calculate orderedInsideCounts for each canvas
+    for (let canvasIndex = 0; canvasIndex < 20; canvasIndex++) {
+        const insideCounts = ellipses[canvasIndex].map((ellipse, ellipseIndex) => {
+            let count = 0;
+            for (let i = 0; i < ellipses[canvasIndex].length; i++) {
+                if (i !== ellipseIndex && isEllipseInside(ellipses[canvasIndex][i], ellipse)) {
+                    count++;
+                }
+            }
+            return count;
+        });
+
+        // Set orderedInsideCounts value for pre-drawn canvases (indexes 3 and 9)
+        if (canvasIndex === 3 || canvasIndex === 9) {
+            orderedInsideCounts.push('21000');
+        } else {
+            orderedInsideCounts.push(descendingOrder(insideCounts).join(''));
+        }
+    }
+
+    // Display orderedInsideCounts for each canvas
+
+    for (let canvasIndex = 0; canvasIndex < 20; canvasIndex++) {
+        const canvasMessage = document.createElement('div');
+		const squareIndex = canvasIndex + 1;
+        canvasMessage.textContent += `Square ${squareIndex}: `;
+
+        // Check if orderedInsideCounts.length < 5
+        if (orderedInsideCounts[canvasIndex].length < 5) {
+            canvasMessage.textContent += " - Not enough loops";
+        }
+        // Check if orderedInsideCounts.length > 5
+        else if (orderedInsideCounts[canvasIndex].length > 5) {
+            canvasMessage.textContent += " - Too many loops";
+        }
+        // Check if orderedInsideCounts.length == 5 and UNIQUE
+        else if (orderedInsideCounts.indexOf(orderedInsideCounts[canvasIndex]) === orderedInsideCounts.lastIndexOf(orderedInsideCounts[canvasIndex])) {
+            canvasMessage.textContent += " - UNIQUE";
+        }
+        // Check if orderedInsideCounts.length == 5 and NOT UNIQUE
+        else {
+            const sameAsCanvas = orderedInsideCounts.findIndex((value, index) => index !== canvasIndex && value === orderedInsideCounts[canvasIndex]);
+			const sameAsSquare = sameAsCanvas + 1;
+			if (canvasIndex === 3 || canvasIndex === 9) {
+				canvasMessage.textContent += " - GIVEN";
+				}
+			else if (!countLevelOneEllipses(ellipses[canvasIndex]) === countLevelOneEllipses(ellipses[sameAsCanvas])) {
+					//do nothing, false positive
+				}
+			else {
+				canvasMessage.textContent += ` - This configuration is the same as Square ${sameAsSquare}`;
+				}
+			}
+        canvasInfo.appendChild(canvasMessage);
+    }
+}
+
+
+
+
+function countLevelOneEllipses(ellipses) {
+    let levelOneCount = 0;
+    ellipses.forEach((ellipse, index) => {
+        console.log(`Checking ellipse ${index}: (${ellipse.centerX}, ${ellipse.centerY}), (${ellipse.radiusX}, ${ellipse.radiusY})`);
+        if (!isEllipseInsideAnother(ellipse, ellipses)) {
+            levelOneCount++;
+            console.log(`Ellipse ${index} is not inside any other ellipse.`);
+        } else {
+            console.log(`Ellipse ${index} is inside another ellipse.`);
+        }
+    });
+    console.log(`Total level one ellipses: ${levelOneCount}`);
+    return levelOneCount;
+}
+
+    function isEllipseInsideAnother(ellipse, ellipses) {
+        for (let i = 0; i < ellipses.length; i++) {
+            if (ellipses[i] !== ellipse && isEllipseInside(ellipse, ellipses[i])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+function isEllipseInside(ellipse1, ellipse2) {
+    const distanceX = Math.abs(ellipse1.centerX - ellipse2.centerX);
+    const distanceY = Math.abs(ellipse1.centerY - ellipse2.centerY);
+    const isInsideX = distanceX + ellipse1.radiusX <= ellipse2.radiusX;
+    const isInsideY = distanceY + ellipse1.radiusY <= ellipse2.radiusY;
+    return isInsideX && isInsideY;
+}
+
+
+    function howManyEllipsesIsThisEllipseInside(ellipse, ellipses) {
+        let depthOfEllipse = 0; // Initialize the depth of the ellipse
+        for (let i = 0; i < ellipses.length; i++) {
+            if (ellipses[i] !== ellipse && isEllipseInside(ellipse, ellipses[i])) {
+                depthOfEllipse++; // Increment the depth if the current ellipse is inside another ellipse
+            }
+        }
+        return depthOfEllipse;
+    }
+
+    function descendingOrder(arr) {
+        // Sort the array in descending order using the compare function
+        arr.sort((a, b) => b - a);
+        return arr;
+    }
+
+    // Function to draw predefined circles on the Row 1 Col 4 canvas
+    function drawPredefinedCirclesRow1Col4() {
+        const canvas = canvases[3]; // Get the Row 1 Col 4 canvas
+        const ctx = ctxs[3]; // Get the context of the top left canvas
+        ctx.beginPath();
+        ctx.strokeStyle = 'black'; // Set the stroke color to black
+        ctx.arc(36, 25, 10, 0, Math.PI * 2); // Circle 1
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(74, 25, 10, 0, Math.PI * 2); // Circle 2
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(55, 74, 25, 0, Math.PI * 2); // Circle 3
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.strokeStyle = 'red'; // Set the stroke color to red
+        ctx.arc(55, 74, 17, 0, Math.PI * 2); // Circle 4
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.strokeStyle = 'blue'; // Set the stroke color to blue
+        ctx.arc(55, 74, 10, 0, Math.PI * 2); // Circle 5
+        ctx.stroke();
+    }
+
+    // Function to draw predefined circles on the Row 2 Col 5 canvas
+function drawPredefinedCirclesRow2Col5() {
+    const canvas = canvases[9]; // Get the Row 2 Col 5 canvas
+    const ctx = ctxs[9]; // Get the context of the top left canvas
+    ctx.beginPath();
+    ctx.strokeStyle = 'black'; // Set the stroke color to black
+    ctx.arc(55, 25, 20, 0, Math.PI * 2); // Circle 1
+	ctx.stroke();
+    ctx.beginPath();
+	ctx.arc(55, 25, 10, 0, Math.PI * 2); // Circle 2
+    ctx.stroke();
+	ctx.beginPath();
+	ctx.ellipse(55, 75, 50, 20, 0, 0, Math.PI * 2); // Circle 3
+	ctx.stroke();
+	ctx.beginPath();
+    ctx.strokeStyle = 'red'; // Set the stroke color to red
+    ctx.arc(35, 75, 10, 0, Math.PI * 2); // Circle 4
+	ctx.stroke();
+	ctx.beginPath();
+    ctx.arc(75, 75, 10, 0, Math.PI * 2); // Circle 5
+	ctx.stroke();
+}
+
+    // Draw predefined circles on the Row 1 Col 4 canvas
+    drawPredefinedCirclesRow1Col4();
+
+    // Draw predefined circles on the Row 2 Col 5 canvas
+    drawPredefinedCirclesRow2Col5();
+
+    // Clear last button event listener
+    const clearLastButton = document.getElementById('clearLastButton');
+    clearLastButton.addEventListener('click', clearLastEllipse);
+
+    function clearLastEllipse() {
+        if (lastCanvasIndex !== -1) {
+            const lastIndex = lastCanvasIndex;
+            ellipses[lastIndex].pop(); // Remove the last drawn ellipse from the array
+            redraw(lastIndex); // Redraw the canvas without the last ellipse
+        }
+    }
+
+    // Clear canvas info function
+    function clearCanvasInfo() {
+        const canvasInfo = document.getElementById('canvasInfo');
+        canvasInfo.textContent = ''; // Clear the canvas info
+    }
+</script>
+
+</body>
+</html>
